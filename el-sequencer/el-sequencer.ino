@@ -428,8 +428,9 @@ const unsigned char modeImages [6][1024] PROGMEM = {{
 
 #define DEBUG 1
 
-byte statusChannel = CHANNEL_A; // keep one channel on at all times
-byte channelOrder[ACTIVE_CHANNELS] = { CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G };
+const byte statusChannel = CHANNEL_A; // keep one channel on at all times
+const byte channelOrder[ACTIVE_CHANNELS] = { CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G };
+
 byte mode = 0;
 int xValue = 0;
 int yValue = 0;
@@ -470,7 +471,7 @@ void loop() {
   if (mode == 0) {
     runAveragePeakMode();
   } else if (mode == 1) {
-    runPeakToPeakMode();S
+    runPeakToPeakMode();
   } else if (mode == 2) {
     runRmsMode();
   } else if (mode == 3) {
@@ -502,7 +503,7 @@ void switchToMeasureBeatInterval() {
   beatCounter = 0;
 }
 
-#define MIN_INTERVAL_BETWEEN_BEATS 250
+#define MIN_INTERVAL_BETWEEN_BEATS 200
 
 void measureBeatInterval() {
   lightWiresUpToIndex(ACTIVE_CHANNELS);
@@ -515,6 +516,10 @@ void measureBeatInterval() {
     }
     beatCounter++;
     lastBeatTime = currentTime;
+    lightWiresUpToIndex(0);
+    delay(MIN_INTERVAL_BETWEEN_BEATS / 2);
+  } else {
+    lightWiresUpToIndex(ACTIVE_CHANNELS);
   }
 }
 
@@ -524,7 +529,7 @@ void switchToBeatIntervalCycle() {
   cycleStarted = false;
 }
 
-#define TIMING_ACCURACY 10 // ms
+#define TIMING_ACCURACY 5 // ms
 
 void runWithBeatInterval(void (*lightWiresFunction)(int)) {
   unsigned long currentTime = millis();
@@ -533,13 +538,13 @@ void runWithBeatInterval(void (*lightWiresFunction)(int)) {
   }
   if (cycleStarted) {
     int numDelays = ACTIVE_CHANNELS * 2 - 2;
-    for (int i = 1; i <= ACTIVE_CHANNELS; i++) {
+    for (int i = ACTIVE_CHANNELS; i > 1; i--) {
        lightWiresFunction(i);
        double delayTime = beatInterval / numDelays;
        int delayTimeRounded = round(delayTime);
        delay(delayTimeRounded);
     }
-    for (int i = ACTIVE_CHANNELS - 1; i > 1; i--) {
+    for (int i = 1; i < ACTIVE_CHANNELS; i++) {
        lightWiresFunction(i);
        double delayTime = beatInterval / numDelays;
        int delayTimeRounded = round(delayTime);
@@ -548,16 +553,16 @@ void runWithBeatInterval(void (*lightWiresFunction)(int)) {
   }
 }
 
-void lightTwoWiresUpToIndex(int index) {
-  lightNumWiresUpToIndex(2, index);
+void lightThreeWiresUpToIndex(int index) {
+  lightNumWiresUpToIndex(3, index);
 }
 
 void runBeatIntervalCycle1() {
-  runWithBeatInterval(&lightTwoWiresUpToIndex);
+  runWithBeatInterval(&lightThreeWiresUpToIndex);
 }
 
 void runBeatIntervalCycle2() {
-  runWithBeatInterval(&lightWiresUpToIndex);
+  runWithBeatInterval(&lightRandomWires);
 }
 
 void runAveragePeakMode() {
@@ -668,6 +673,15 @@ void lightNumWiresUpToIndex(int num, int index) {
   for (int i = 0; i < ACTIVE_CHANNELS; i++) {
     int value = ((index > i) && (i + num >= index)) ? HIGH : LOW;
     digitalWrite(channelOrder[i], value);
+  }
+}
+
+void lightRandomWires(int index) {
+  if (index == ACTIVE_CHANNELS) {
+    for (int i = 0; i < ACTIVE_CHANNELS; i++) {
+      int value = random(0, 2) > 0 ? HIGH : LOW;
+      digitalWrite(channelOrder[i], value);
+    }
   }
 }
 
