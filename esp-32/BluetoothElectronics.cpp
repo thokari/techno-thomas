@@ -40,7 +40,9 @@ void BluetoothElectronics::handleInput() {
       Serial.println("Received: " + inputBuffer);
 #endif
       processInput(inputBuffer);
+#if DEBUG
       serialBT.println("Echo: " + inputBuffer);
+#endif
       inputBuffer = "";
     } else {
       inputBuffer += c;

@@ -38,13 +38,12 @@ const uint8_t channelOrder[ACTIVE_CHANNELS] = {
   CHANNEL_A, CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G, CHANNEL_H
 };
 ELSequencer sequencer = ELSequencer(channelOrder, ACTIVE_CHANNELS);
-
-#define NUM_MODES 4
+#define NUM_MODES 7
 uint8_t mode = 0;
 uint8_t numWires = 8;
-#define NUM_DELAYS 6
-uint16_t fixedModeDelays[NUM_DELAYS] = { 5, 10, 25, 50, 100, 250 };
-uint8_t currentDelayIndex = 1;
+#define NUM_DELAYS 10
+uint16_t fixedModeDelays[NUM_DELAYS] = { 5, 10, 25, 33, 50, 66, 100, 250, 500, 1000 };
+uint8_t currentDelayIndex = 2;
 uint32_t timer = 0;
 
 #if USE_RADIO
@@ -71,20 +70,15 @@ uint32_t loopBegin = 0;
 void loop() {
   loopBegin = millis();
   bluetooth.handleInput();
-  if (mode == 0) {
+
+  if (mode == 0 || mode == 1) {
     mic.readAudioSample();
     processSample();
-    runReactiveMode_1();
-    if (outputToBluetooth) {
-      printToBluetooth();
+    if (mode == 0) {
+      runReactiveMode_1();
+    } else {
+      runReactiveMode_2();
     }
-#if DEBUG
-    printToSerialMonitor();
-#endif
-  } else if (mode == 1) {
-    mic.readAudioSample();
-    processSample();
-    runReactiveMode_2();
     if (outputToBluetooth) {
       printToBluetooth();
     }
@@ -95,6 +89,12 @@ void loop() {
     runFixedPatternMode_1();
   } else if (mode == 3) {
     runFixedPatternMode_2();
+  } else if (mode == 4) {
+    runFixedPatternMode_3();
+  } else if (mode == 5) {
+    runFixedPatternMode_4();
+  } else if (mode == 6) {
+    runFixedPatternMode_5();
   }
 }
 
@@ -123,26 +123,42 @@ void runReactiveMode_2() {
 }
 
 void runFixedPatternMode_1() {
-  for (int i = 0; i <= ACTIVE_CHANNELS - 1; i++) {
+  for (int i = 0; i <= ACTIVE_CHANNELS; i++) {
     sequencer.lightWiresAtIndex(i);
-    delay(currentDelay());
-    sequencer.lightWiresAtIndex(i + 1);
     delay(currentDelay());
   }
 }
 
-uint8_t phase = 0;
 void runFixedPatternMode_2() {
-  if (phase == 0) {
-    uint8_t pattern[ACTIVE_CHANNELS] = { 0, 1, 0, 1, 0, 1, 0, 1 };
-    sequencer.lightWiresByPattern(pattern);
-    delay(currentDelay());
-  } else {
-    uint8_t pattern[ACTIVE_CHANNELS] = { 1, 0, 1, 0, 1, 0, 1, 0 };
-    sequencer.lightWiresByPattern(pattern);
+  for (int i = 0; i <= ACTIVE_CHANNELS - 1; i++) {
+    sequencer.lightWiresAtIndex(i);
     delay(currentDelay());
   }
-  phase = phase == 0 ? 1 : 0;
+  for (int i = ACTIVE_CHANNELS - 2; i >= 1; i--) {
+    sequencer.lightWiresAtIndex(i);
+    delay(currentDelay());
+  }
+}
+
+void runFixedPatternMode_3() {
+  sequencer.lightAll();
+  delay(currentDelay());
+  sequencer.lightNone();
+  delay(currentDelay());
+}
+
+void runFixedPatternMode_4() {
+  sequencer.lightAll();
+  delay(currentDelay());
+  for (int i = ACTIVE_CHANNELS - 1; i >= 0; i--) {
+    sequencer.lightNumWires(i);
+    delay(currentDelay());
+  }
+}
+
+void runFixedPatternMode_5() {
+  sequencer.lightRandomWires();
+  delay(currentDelay());
 }
 
 void printToSerialMonitor() {
@@ -160,10 +176,10 @@ void printToBluetooth() {
 }
 
 void processSample() {
-// #if DEBUG
-//   Serial.print(mic.getSignal());
-//   Serial.print(",");
-// #endif
+#if DEBUG
+  Serial.print(mic.getSignal());
+  Serial.print(",");
+#endif
   uint16_t contrainedSignal = constrain(mic.getSignal(), mic.getLow(), mic.getHigh());
   mappedSignal = map(contrainedSignal, mic.getLow(), mic.getHigh(), 0, ACTIVE_CHANNELS);
 }
@@ -293,6 +309,15 @@ void printMode() {
     bluetooth.sendKwlValue(currentDelay(), "S");
   } else if (mode == 3) {
     bluetooth.sendKwlString("F2", "M");
+    bluetooth.sendKwlValue(currentDelay(), "S");
+  } else if (mode == 4) {
+    bluetooth.sendKwlString("F3", "M");
+    bluetooth.sendKwlValue(currentDelay(), "S");
+  } else if (mode == 5) {
+    bluetooth.sendKwlString("F4", "M");
+    bluetooth.sendKwlValue(currentDelay(), "S");
+  } else if (mode == 6) {
+    bluetooth.sendKwlString("F5", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
   }
 }

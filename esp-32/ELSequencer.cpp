@@ -36,6 +36,18 @@ void ELSequencer::lightWiresByPattern(uint8_t pattern[]) {
   }
 }
 
+void ELSequencer::lightAll() {
+  for (uint8_t i = 0; i < channelCount; i++) {
+    digitalWrite(channelOrder[i], HIGH);
+  }
+}
+
+void ELSequencer::lightNone() {
+  for (uint8_t i = 0; i < channelCount; i++) {
+    digitalWrite(channelOrder[i], LOW);
+  }
+}
+
 void ELSequencer::lightRandomWires() {
   for (uint8_t i = 0; i < channelCount; i++) {
     uint8_t value = random(0, 2) > 0 ? HIGH : LOW;

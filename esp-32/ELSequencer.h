@@ -11,6 +11,8 @@ public:
   void lightWiresAtIndex(uint8_t index);
   void lightNumWiresUpToWire(uint8_t num, uint8_t wireNum);
   void lightWiresByPattern(uint8_t pattern[]);
+  void lightAll();
+  void lightNone();
   void lightRandomWires();
 
 private:
