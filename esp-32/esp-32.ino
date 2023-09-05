@@ -206,48 +206,48 @@ void processSample() {
 }
 
 void registerBluetoothCommands() {
-  bluetooth.registerCommand("L", handleLCommand);
-  bluetooth.registerCommand("H", handleHCommand);
-  bluetooth.registerCommand("D", handleDCommand);
-  bluetooth.registerCommand("d", handledCommand);
-  bluetooth.registerCommand("S", handleSCommand);
-  bluetooth.registerCommand("s", handlesCommand);
-  bluetooth.registerCommand("N", handleNCommand);
-  bluetooth.registerCommand("1", handle1Command);
-  bluetooth.registerCommand("3", handle3Command);
-  bluetooth.registerCommand("2", handle2Command);
-  bluetooth.registerCommand("4", handle4Command);
+  bluetooth.registerCommand("L", cmdSetLow);
+  bluetooth.registerCommand("H", cmdSetHigh);
+  bluetooth.registerCommand("D", cmdDebugOn);
+  bluetooth.registerCommand("d", cmdDebugOff);
+  bluetooth.registerCommand("S", cmdSetSamplingP2P);
+  bluetooth.registerCommand("s", cmdSetSamplingRMS);
+  bluetooth.registerCommand("N", cmdSetGain);
+  bluetooth.registerCommand("1", cmdUp);
+  bluetooth.registerCommand("3", cmdDown);
+  bluetooth.registerCommand("2", cmdRight);
+  bluetooth.registerCommand("4", cmdLeft);
 }
 
-void handleLCommand(const String& parameter) {
+void cmdSetLow(const String& parameter) {
   mic.setLow(parameter.toInt());
   bluetooth.sendKwlValue(mic.getLow(), "L");
 }
 
-void handleHCommand(const String& parameter) {
+void cmdSetHigh(const String& parameter) {
   mic.setHigh(parameter.toInt());
   bluetooth.sendKwlValue(mic.getHigh(), "H");
 }
 
-void handleDCommand(const String&) {
+void cmdDebugOn(const String&) {
     outputToBluetooth = true;
 }
 
-void handledCommand(const String&) {
+void cmdDebugOff(const String&) {
     outputToBluetooth = false;
 }
 
-void handleSCommand(const String&) {
+void cmdSetSamplingP2P(const String&) {
     mic.setMode(LoudnessMeter::PEAK_TO_PEAK);
     bluetooth.sendKwlString("P2P", "P");
 }
 
-void handlesCommand(const String&) {
+void cmdSetSamplingRMS(const String&) {
     mic.setMode(LoudnessMeter::RMS);
     bluetooth.sendKwlString("RMS", "P");
 }
 
-void handleNCommand(const String& parameter) {
+void cmdSetGain(const String& parameter) {
     int gain = parameter.toInt();
     if (gain == 1) {
         mic.setGain(LoudnessMeter::LOW_GAIN);
@@ -259,19 +259,19 @@ void handleNCommand(const String& parameter) {
     bluetooth.sendKwlValue(gain, "N");
 }
 
-void handle1Command(const String&) {
+void cmdUp(const String&) {
     nextMode();
 }
 
-void handle3Command(const String&) {
+void cmdDown(const String&) {
     prevMode();
 }
 
-void handle2Command(const String&) {
+void cmdRight(const String&) {
     nextSetting();
 }
 
-void handle4Command(const String&) {
+void cmdLeft(const String&) {
     prevSetting();
 }
 
@@ -320,19 +320,15 @@ void prevSetting() {
 
 void printMode() {
   if (mode == 0) {
-    Serial.println("Mode is 0");
     bluetooth.sendKwlString("R1", "M");
     bluetooth.sendKwlValue(numWires, "S");
   } else if (mode == 1) {
-    Serial.println("Mode is 1");
     bluetooth.sendKwlString("R2", "M");
     bluetooth.sendKwlValue(numWires, "S");
   } else if (mode == 2) {
-    Serial.println("Mode is 2");
     bluetooth.sendKwlString("F1", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
   } else if (mode == 3) {
-    Serial.println("Mode is 3");
     bluetooth.sendKwlString("F2", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
   }
