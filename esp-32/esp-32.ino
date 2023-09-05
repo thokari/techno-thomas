@@ -18,7 +18,13 @@ LoudnessMeter mic = LoudnessMeter(
   DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH);
 uint16_t mappedSignal;
 
+// Bluetooth
+#include "BluetoothElectronics.h"
+#define DEVICE_NAME "LOLIN32 Lite"
+BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
+
 // EL Sequencer
+#include "ELSequencer.h"
 #define CHANNEL_A 13
 #define CHANNEL_B 15
 #define CHANNEL_C 2
@@ -31,11 +37,7 @@ uint16_t mappedSignal;
 const uint8_t channelOrder[ACTIVE_CHANNELS] = {
   CHANNEL_A, CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G, CHANNEL_H
 };
-
-// Bluetooth
-#include "BluetoothElectronics.h"
-#define DEVICE_NAME "LOLIN32 Lite"
-BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
+ELSequencer sequencer = ELSequencer(channelOrder, ACTIVE_CHANNELS);
 
 #define NUM_MODES 4
 uint8_t mode = 0;
@@ -59,13 +61,11 @@ void setup() {
 #if USE_RADIO
   initRadio();
 #endif
-  initSequencer();
-  playWireStartSequence();
+  sequencer.begin();
   Serial.println("Setup complete");
 }
 
 boolean outputToBluetooth = false;
-
 uint32_t loopBegin = 0;
 
 void loop() {
@@ -100,11 +100,11 @@ void loop() {
 
 void runReactiveMode_1() {
   if (numWires == 1) {
-    mappedSignal > 0 ? lightWiresAtIndex(mappedSignal - 1) : lightNumWires(0);
+    mappedSignal > 0 ? sequencer.lightWiresAtIndex(mappedSignal - 1) : sequencer.lightNumWires(0);
   } else if (numWires == ACTIVE_CHANNELS) {
-    lightNumWires(mappedSignal);
+    sequencer.lightNumWires(mappedSignal);
   } else {
-    lightNumWiresUpToWire(numWires, mappedSignal);
+    sequencer.lightNumWiresUpToWire(numWires, mappedSignal);
   }
 }
 
@@ -113,10 +113,10 @@ void runReactiveMode_2() {
   if (mappedSignal > 6) {
     if (counter == 1) {
       uint8_t pattern[ACTIVE_CHANNELS] = { 0, 1, 0, 1, 0, 1, 0, 1 };
-      lightWiresByPattern(pattern);
+      sequencer.lightWiresByPattern(pattern);
     } else {
       uint8_t pattern[ACTIVE_CHANNELS] = { 1, 0, 1, 0, 1, 0, 1, 0 };
-      lightWiresByPattern(pattern);
+      sequencer.lightWiresByPattern(pattern);
     }
     counter = counter == 0 ? 1 : 0;
   }
@@ -124,9 +124,9 @@ void runReactiveMode_2() {
 
 void runFixedPatternMode_1() {
   for (int i = 0; i <= ACTIVE_CHANNELS - 1; i++) {
-    lightWiresAtIndex(i);
+    sequencer.lightWiresAtIndex(i);
     delay(currentDelay());
-    lightWiresAtIndex(i + 1);
+    sequencer.lightWiresAtIndex(i + 1);
     delay(currentDelay());
   }
 }
@@ -135,51 +135,14 @@ uint8_t phase = 0;
 void runFixedPatternMode_2() {
   if (phase == 0) {
     uint8_t pattern[ACTIVE_CHANNELS] = { 0, 1, 0, 1, 0, 1, 0, 1 };
-    lightWiresByPattern(pattern);
+    sequencer.lightWiresByPattern(pattern);
     delay(currentDelay());
   } else {
     uint8_t pattern[ACTIVE_CHANNELS] = { 1, 0, 1, 0, 1, 0, 1, 0 };
-    lightWiresByPattern(pattern);
+    sequencer.lightWiresByPattern(pattern);
     delay(currentDelay());
   }
   phase = phase == 0 ? 1 : 0;
-}
-
-void lightNumWires(int num) {
-  for (int i = 0; i < ACTIVE_CHANNELS; i++) {
-    int value = i < num ? HIGH : LOW;
-    digitalWrite(channelOrder[i], value);
-  }
-}
-
-void lightWiresAtIndex(int index) {
-  for (int i = 0; i < ACTIVE_CHANNELS; i++) {
-    int value = i == index ? HIGH : LOW;
-    digitalWrite(channelOrder[i], value);
-  }
-}
-
-void lightNumWiresUpToWire(int num, int wireNum) {
-  for (int i = 0; i < ACTIVE_CHANNELS; i++) {
-    int value = ((wireNum > i) && (i + num >= wireNum)) ? HIGH : LOW;
-    digitalWrite(channelOrder[i], value);
-  }
-}
-
-void lightRandomWires(int index) {
-  if (index == ACTIVE_CHANNELS) {
-    for (int i = 0; i < ACTIVE_CHANNELS; i++) {
-      int value = random(0, 2) > 0 ? HIGH : LOW;
-      digitalWrite(channelOrder[i], value);
-    }
-  }
-}
-
-void lightWiresByPattern(uint8_t pattern[ACTIVE_CHANNELS]) {
-  for (int i = 0; i < ACTIVE_CHANNELS; i++) {
-    int value = pattern[i] > 0 ? HIGH : LOW;
-    digitalWrite(channelOrder[i], value);
-  }
 }
 
 void printToSerialMonitor() {
@@ -338,17 +301,6 @@ uint16_t currentDelay() {
   return fixedModeDelays[currentDelayIndex];
 }
 
-void initSequencer() {
-  pinMode(CHANNEL_A, OUTPUT);
-  pinMode(CHANNEL_B, OUTPUT);
-  pinMode(CHANNEL_C, OUTPUT);
-  pinMode(CHANNEL_D, OUTPUT);
-  pinMode(CHANNEL_E, OUTPUT);
-  pinMode(CHANNEL_F, OUTPUT);
-  pinMode(CHANNEL_G, OUTPUT);
-  pinMode(CHANNEL_H, OUTPUT);
-}
-
 #if USE_READIO
 void initRadio() {
   boolean radioOn = radio.begin();
@@ -375,20 +327,3 @@ void sendRadioData() {
 #endif
 }
 #endif
-
-void playWireStartSequence() {
-  for (int i = 0; i <= ACTIVE_CHANNELS; i++) {
-    lightNumWires(i);
-    delay(100);
-  }
-  for (int i = ACTIVE_CHANNELS; i >= 0; i--) {
-    lightNumWires(i);
-    delay(100);
-  }
-  for (int i = 0; i < 10; i++) {
-    lightNumWires(0);
-    delay(50);
-    lightNumWires(ACTIVE_CHANNELS);
-    delay(50);
-  }
-}
