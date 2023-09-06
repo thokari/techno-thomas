@@ -44,9 +44,6 @@ void LoudnessMeter::samplePeakToPeak() {
   uint32_t t0 = millis();
   while (millis() - t0 < micSampleWindow) {
     uint16_t currentSample = analogRead(micOut);
-#if DEBUG
-    Serial.println(value);
-#endif
     currentMin = min(currentMin, currentSample);
     currentMax = max(currentMax, currentSample);
   }
@@ -60,9 +57,6 @@ void LoudnessMeter::sampleRms() {
   uint32_t sampleCount = 0;
   while (millis() - t0 < micSampleWindow) {
     currentSample = analogRead(micOut);
-#if DEBUG
-    Serial.println(value);
-#endif
     currentSum += pow(currentSample, 2);
     sampleCount++;
   }
@@ -97,9 +91,11 @@ void LoudnessMeter::setGain(Gain gain) {
       pinMode(micGain, INPUT);
       break;
     case MEDIUM_GAIN:
+      pinMode(micGain, OUTPUT);
       digitalWrite(micGain, LOW);
       break;
     case LOW_GAIN:
+      pinMode(micGain, OUTPUT);
       digitalWrite(micGain, HIGH);
       break;
   }

@@ -4,8 +4,8 @@
 
 // LoudnessMeter
 #include "LoudnessMeter.h"
-#define MIC_OUT 34
-#define MIC_GAIN 35
+#define MIC_OUT 12
+#define MIC_GAIN 14
 #define MIC_SAMPLE_WINDOW 16  // ms
 #define DEFAULT_P2P_LOW 1000
 #define DEFAULT_P2P_HIGH 4000
