@@ -1,11 +1,11 @@
-#define DEBUG 0
+#define DEBUG 1
 #define DEBUG_BAUD_RATE 57600
 #define USE_RADIO 0
 
 // LoudnessMeter
 #include "LoudnessMeter.h"
-#define MIC_OUT 12
-#define MIC_GAIN 14
+#define MIC_OUT 35
+#define MIC_GAIN 32
 #define MIC_SAMPLE_WINDOW 16  // ms
 #define DEFAULT_P2P_LOW 1000
 #define DEFAULT_P2P_HIGH 4000
@@ -46,6 +46,16 @@ uint16_t fixedModeDelays[NUM_DELAYS] = { 5, 10, 25, 33, 50, 66, 100, 250, 500, 1
 uint8_t currentDelayIndex = 2;
 uint32_t timer = 0;
 
+// Push-Buttons
+#define BUTTON_1_PIN 25
+#define DEBOUNCE_MS 5
+#define BUTTON_PAUSE_MS 1000
+volatile bool button1Pressed = false;
+volatile bool skipLoop = false;
+volatile unsigned long lastButtonPressTime = 0;
+volatile unsigned long lastEdgeTime = 0;
+
+// Radio
 #if USE_RADIO
 struct RadioData {
   uint8_t value = 0;
@@ -60,6 +70,7 @@ void setup() {
 #if USE_RADIO
   initRadio();
 #endif
+  initPushButtons();
   sequencer.begin();
   Serial.println("Setup complete");
 }
@@ -69,8 +80,17 @@ uint32_t loopBegin = 0;
 
 void loop() {
   loopBegin = millis();
+  if (loopBegin - lastButtonPressTime > BUTTON_PAUSE_MS) {
+    skipLoop = false;
+  }
+  if (skipLoop) {
+    if (button1Pressed) {
+      runFixedPatternMode_4();
+      button1Pressed = false;
+    }
+    return;
+  }
   bluetooth.handleInput();
-
   if (mode == 0 || mode == 1) {
     mic.readAudioSample();
     processSample();
@@ -96,6 +116,25 @@ void loop() {
   } else if (mode == 6) {
     runFixedPatternMode_5();
   }
+}
+
+void initPushButtons() {
+  pinMode(BUTTON_1_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleButton1FallingInterrupt, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleRisingInterrupt, RISING);
+}
+
+void IRAM_ATTR handleButton1FallingInterrupt() {
+  unsigned long currentEdgeTime = millis();
+  if (currentEdgeTime - lastEdgeTime > DEBOUNCE_MS) {
+    button1Pressed = true;
+    lastButtonPressTime = currentEdgeTime;
+  }
+  lastEdgeTime = currentEdgeTime;
+}
+
+void IRAM_ATTR handleRisingInterrupt() {
+  lastEdgeTime = millis();
 }
 
 void runReactiveMode_1() {
@@ -209,49 +248,49 @@ void cmdSetHigh(const String& parameter) {
 }
 
 void cmdDebugOn(const String&) {
-    outputToBluetooth = true;
+  outputToBluetooth = true;
 }
 
 void cmdDebugOff(const String&) {
-    outputToBluetooth = false;
+  outputToBluetooth = false;
 }
 
 void cmdSetSamplingP2P(const String&) {
-    mic.setMode(LoudnessMeter::PEAK_TO_PEAK);
-    bluetooth.sendKwlString("P2P", "P");
+  mic.setMode(LoudnessMeter::PEAK_TO_PEAK);
+  bluetooth.sendKwlString("P2P", "P");
 }
 
 void cmdSetSamplingRMS(const String&) {
-    mic.setMode(LoudnessMeter::RMS);
-    bluetooth.sendKwlString("RMS", "P");
+  mic.setMode(LoudnessMeter::RMS);
+  bluetooth.sendKwlString("RMS", "P");
 }
 
 void cmdSetGain(const String& parameter) {
-    int gain = parameter.toInt();
-    if (gain == 1) {
-        mic.setGain(LoudnessMeter::LOW_GAIN);
-    } else if (gain == 2) {
-        mic.setGain(LoudnessMeter::MEDIUM_GAIN);
-    } else if (gain == 3) {
-        mic.setGain(LoudnessMeter::HIGH_GAIN);
-    }
-    bluetooth.sendKwlValue(gain, "N");
+  int gain = parameter.toInt();
+  if (gain == 1) {
+    mic.setGain(LoudnessMeter::LOW_GAIN);
+  } else if (gain == 2) {
+    mic.setGain(LoudnessMeter::MEDIUM_GAIN);
+  } else if (gain == 3) {
+    mic.setGain(LoudnessMeter::HIGH_GAIN);
+  }
+  bluetooth.sendKwlValue(gain, "N");
 }
 
 void cmdUp(const String&) {
-    nextMode();
+  nextMode();
 }
 
 void cmdDown(const String&) {
-    prevMode();
+  prevMode();
 }
 
 void cmdRight(const String&) {
-    nextSetting();
+  nextSetting();
 }
 
 void cmdLeft(const String&) {
-    prevSetting();
+  prevSetting();
 }
 
 void nextMode() {
