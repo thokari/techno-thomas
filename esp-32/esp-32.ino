@@ -1,5 +1,8 @@
+//compile using ESP32 S3 ('ESP32S3 CAM LCD' board selected) worked
+//compile using ESP32 C3 ('ESP32C3 Dev Module' board selected) worked
+//uploading to 'ESP32 C3 Super Mini' always fails with 'A fatal error occurred: Failed to connect to ESP32-C3: No serial data received.'
 #define DEBUG 1
-#define DEBUG_BAUD_RATE 57600
+#define DEBUG_BAUD_RATE 9600 //57600
 #define USE_RADIO 0
 
 // LoudnessMeter
@@ -19,9 +22,9 @@ LoudnessMeter mic = LoudnessMeter(
 uint16_t mappedSignal;
 
 // Bluetooth
+#include <HardwareBLESerial.h>
 #include "BluetoothElectronics.h"
-#define DEVICE_NAME "LOLIN32 Lite"
-BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
+BluetoothElectronics bluetooth = BluetoothElectronics();
 
 // EL Sequencer
 #include "ELSequencer.h"
@@ -64,8 +67,15 @@ struct RadioData {
 
 void setup() {
   Serial.begin(DEBUG_BAUD_RATE);
+  Serial.println("Setup starting");
   registerBluetoothCommands();
-  bluetooth.begin();
+  if (!bluetooth.beginAndSetupBLE("Echo")) {
+    Serial.begin(9600);
+    while (true) {
+      Serial.println("failed to initialize HardwarebleSerial!");
+      delay(1000);
+    }
+  }
   mic.begin();
 #if USE_RADIO
   initRadio();
@@ -79,6 +89,7 @@ boolean outputToBluetooth = false;
 uint32_t loopBegin = 0;
 
 void loop() {
+  bluetooth.poll();
   loopBegin = millis();
   if (loopBegin - lastButtonPressTime > BUTTON_PAUSE_MS) {
     skipLoop = false;
@@ -118,11 +129,7 @@ void loop() {
   }
 }
 
-void initPushButtons() {
-  pinMode(BUTTON_1_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleButton1FallingInterrupt, FALLING);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleRisingInterrupt, RISING);
-}
+
 
 void IRAM_ATTR handleButton1FallingInterrupt() {
   unsigned long currentEdgeTime = millis();
@@ -135,6 +142,11 @@ void IRAM_ATTR handleButton1FallingInterrupt() {
 
 void IRAM_ATTR handleRisingInterrupt() {
   lastEdgeTime = millis();
+}
+void initPushButtons() {
+  pinMode(BUTTON_1_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleButton1FallingInterrupt, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleRisingInterrupt, RISING);
 }
 
 void runReactiveMode_1() {
