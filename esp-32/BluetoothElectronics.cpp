@@ -2,10 +2,11 @@
 #define DEBUG_BAUD_RATE 57600
 
 #include "BluetoothElectronics.h"
-#include "BluetoothSerial.h"
+//#include "BluetoothSerial.h"
+#include <HardwareBLESerial.h>
+HardwareBLESerial &bleSerial = HardwareBLESerial::getInstance();
+BluetoothElectronics::BluetoothElectronics(){}
 
-BluetoothElectronics::BluetoothElectronics(String deviceName)
-  : deviceName(deviceName) {}
 
 void BluetoothElectronics::registerCommand(const String& receiveChar, void (*action)(const String&)) {
   Command* newCommand = new Command{ receiveChar, action, nullptr };
@@ -24,29 +25,21 @@ void BluetoothElectronics::begin() {
 #if DEBUG
   Serial.begin(DEBUG_BAUD_RATE);
 #endif
-  serialBT.begin(deviceName, false);
+  bleSerial.beginAndSetupBLE("Boooh");
 }
 
 void BluetoothElectronics::handleInput() {
-  static String inputBuffer = "";
-  while (serialBT.available()) {
-    char c = serialBT.read();
+  while (bleSerial.availableLines() > 0) {
+    char line[128]; bleSerial.readLine(line, 128);
+// may have to do this    if (c == '\n') {
+//      inputBuffer.trim();
 #if DEBUG
-    Serial.println("Received char: " + String(c));
+      Serial.println("Received: " + line);
 #endif
-    if (c == '\n') {
-      inputBuffer.trim();
+      processInput(line);
 #if DEBUG
-      Serial.println("Received: " + inputBuffer);
+      bleSerial.println("Echo: " + line);
 #endif
-      processInput(inputBuffer);
-#if DEBUG
-      serialBT.println("Echo: " + inputBuffer);
-#endif
-      inputBuffer = "";
-    } else {
-      inputBuffer += c;
-    }
   }
 }
 
@@ -83,8 +76,7 @@ void BluetoothElectronics::sendKwlString(String value, String receiveChar) {
 #if DEBUG
   Serial.println("Sending via BT: " + cmd);
 #endif
-  serialBT.flush();
-  serialBT.println(cmd);
+  bleSerial.println(cmd.c_str());
 }
 
 void BluetoothElectronics::sendKwlValue(int value, String receiveChar) {
@@ -96,6 +88,13 @@ void BluetoothElectronics::sendKwlCode(String code) {
 #if DEBUG
   Serial.println("Sending via BT: " + cmd);
 #endif
-  serialBT.flush();
-  serialBT.print(cmd);
+  bleSerial.println(cmd.c_str());
 }
+
+
+  bool BluetoothElectronics::beginAndSetupBLE(const char *name){
+    bleSerial.beginAndSetupBLE(name);
+  }
+  void BluetoothElectronics::poll(){
+    bleSerial.poll();
+  }

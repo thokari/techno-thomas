@@ -2,14 +2,14 @@
 #define BLUETOOTH_ELECTRONICS_H
 
 #include "Arduino.h"
-#include "BluetoothSerial.h"
+//#include "BluetoothSerial.h"
 
 #define KWL_BEGIN "*.kwl"
 #define KWL_END "*"
 
 class BluetoothElectronics {
 public:
-  BluetoothElectronics(String deviceName);
+  BluetoothElectronics();
   void registerCommand(const String& receiveChar, void (*action)(const String&));
   void begin();
   void handleInput();
@@ -17,6 +17,9 @@ public:
   void sendKwlString(String input, String receiveChar);
   void sendKwlValue(int value, String receiveChar);
   void sendKwlCode(String code);
+
+  bool beginAndSetupBLE(const char *name);
+  void poll();
 
 private:
   struct Command {
@@ -28,7 +31,7 @@ private:
   };
 
   String deviceName;
-  BluetoothSerial serialBT;
+  //BluetoothSerial serialBT;
   Command* commandHead = nullptr;
   void processInput(String input);
 };
