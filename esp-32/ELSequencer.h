@@ -5,7 +5,7 @@
 
 class ELSequencer {
 public:
-  ELSequencer(const uint8_t channelOrder[], const uint8_t channelCount);
+  ELSequencer(const uint8_t order[], const uint8_t count);
   void begin();
   void lightNumWires(uint8_t num);
   void lightWiresAtIndex(uint8_t index);
@@ -14,12 +14,14 @@ public:
   void lightAll();
   void lightNone();
   void lightRandomWires();
+  void lightNumRandomWires(uint8_t num);
 
 private:
   void initSequencer();
   void playWireStartSequence();
   const uint8_t channelCount;
   const uint8_t* channelOrder;
+  uint8_t* channelIndices;
 };
 
 #endif

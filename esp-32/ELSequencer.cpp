@@ -1,7 +1,12 @@
 #include "ELSequencer.h"
 
-ELSequencer::ELSequencer(const uint8_t channelOrder[], const uint8_t channelCount)
-  : channelOrder(channelOrder), channelCount(channelCount) {}
+ELSequencer::ELSequencer(const uint8_t order[], const uint8_t count)
+  : channelOrder(order), channelCount(count) {
+    channelIndices = new uint8_t[count];
+    for (uint8_t i = 0; i < count; i++) {
+      channelIndices[i] = i;
+    }
+  }
 
 void ELSequencer::begin() {
   initSequencer();
@@ -52,6 +57,24 @@ void ELSequencer::lightRandomWires() {
   for (uint8_t i = 0; i < channelCount; i++) {
     uint8_t value = random(0, 2) > 0 ? HIGH : LOW;
     digitalWrite(channelOrder[i], value);
+  }
+}
+
+void ELSequencer::lightNumRandomWires(uint8_t numWires) {
+  if (numWires > channelCount) {
+    numWires = channelCount;
+  }
+  for (uint8_t i = 0; i < channelCount; i++) {
+    uint8_t j = random(0, channelCount);
+    uint8_t temp = channelIndices[i];
+    channelIndices[i] = channelIndices[j];
+    channelIndices[j] = temp;
+  }
+  for (uint8_t i = 0; i < channelCount; i++) {
+    digitalWrite(channelOrder[i], LOW);
+  }
+  for (uint8_t i = 0; i < numWires; i++) {
+    digitalWrite(channelOrder[channelIndices[i]], HIGH);
   }
 }
 

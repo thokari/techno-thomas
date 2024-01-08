@@ -1,4 +1,4 @@
-#define DEBUG 1
+#define DEBUG 0
 #define DEBUG_BAUD_RATE 57600
 #define USE_RADIO 0
 
@@ -27,10 +27,10 @@ BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
 #include "ELSequencer.h"
 #define CHANNEL_A 13
 #define CHANNEL_B 15
-#define CHANNEL_C 2
-#define CHANNEL_D 0
-#define CHANNEL_E 4
-#define CHANNEL_F 16
+#define CHANNEL_C 0
+#define CHANNEL_D 2
+#define CHANNEL_E 16
+#define CHANNEL_F 4
 #define CHANNEL_G 17
 #define CHANNEL_H 5
 #define ACTIVE_CHANNELS 8
@@ -38,12 +38,12 @@ const uint8_t channelOrder[ACTIVE_CHANNELS] = {
   CHANNEL_A, CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G, CHANNEL_H
 };
 ELSequencer sequencer = ELSequencer(channelOrder, ACTIVE_CHANNELS);
-#define NUM_MODES 7
+#define NUM_MODES 8
 uint8_t mode = 0;
 uint8_t numWires = 8;
 #define NUM_DELAYS 10
-uint16_t fixedModeDelays[NUM_DELAYS] = { 5, 10, 25, 33, 50, 66, 100, 250, 500, 1000 };
-uint8_t currentDelayIndex = 2;
+uint16_t fixedModeDelays[NUM_DELAYS] = { 10, 25, 33, 50, 66, 100, 166, 250, 500, 1000 };
+uint8_t currentDelayIndex = 1;
 uint32_t timer = 0;
 
 // Push-Buttons
@@ -63,7 +63,9 @@ struct RadioData {
 #endif
 
 void setup() {
+#if DEBUG
   Serial.begin(DEBUG_BAUD_RATE);
+#endif
   registerBluetoothCommands();
   bluetooth.begin();
   mic.begin();
@@ -72,7 +74,9 @@ void setup() {
 #endif
   initPushButtons();
   sequencer.begin();
+#if DEBUG
   Serial.println("Setup complete");
+#endif
 }
 
 boolean outputToBluetooth = false;
@@ -91,13 +95,15 @@ void loop() {
     return;
   }
   bluetooth.handleInput();
-  if (mode == 0 || mode == 1) {
+  if (mode == 0 || mode == 1 || mode == 2) {
     mic.readAudioSample();
     processSample();
     if (mode == 0) {
       runReactiveMode_1();
-    } else {
+    } else if (mode == 1) {
       runReactiveMode_2();
+    } else if (mode == 2) {
+      runReactiveMode_3();
     }
     if (outputToBluetooth) {
       printToBluetooth();
@@ -105,23 +111,17 @@ void loop() {
 #if DEBUG
     printToSerialMonitor();
 #endif
-  } else if (mode == 2) {
-    runFixedPatternMode_1();
   } else if (mode == 3) {
-    runFixedPatternMode_2();
+    runFixedPatternMode_1();
   } else if (mode == 4) {
-    runFixedPatternMode_3();
+    runFixedPatternMode_2();
   } else if (mode == 5) {
-    runFixedPatternMode_4();
+    runFixedPatternMode_3();
   } else if (mode == 6) {
+    runFixedPatternMode_4();
+  } else if (mode == 7) {
     runFixedPatternMode_5();
   }
-}
-
-void initPushButtons() {
-  pinMode(BUTTON_1_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleButton1FallingInterrupt, FALLING);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleRisingInterrupt, RISING);
 }
 
 void IRAM_ATTR handleButton1FallingInterrupt() {
@@ -135,6 +135,12 @@ void IRAM_ATTR handleButton1FallingInterrupt() {
 
 void IRAM_ATTR handleRisingInterrupt() {
   lastEdgeTime = millis();
+}
+
+void initPushButtons() {
+  pinMode(BUTTON_1_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleButton1FallingInterrupt, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_1_PIN), handleRisingInterrupt, RISING);
 }
 
 void runReactiveMode_1() {
@@ -158,6 +164,12 @@ void runReactiveMode_2() {
       sequencer.lightWiresByPattern(pattern);
     }
     counter = counter == 0 ? 1 : 0;
+  }
+}
+
+void runReactiveMode_3() {
+  if (mappedSignal > 6) {
+    sequencer.lightNumRandomWires(numWires);
   }
 }
 
@@ -308,25 +320,25 @@ void prevMode() {
 }
 
 void nextSetting() {
-  if (mode < 2) {
+  if (mode < 3) {
     if (++numWires > ACTIVE_CHANNELS) {
       numWires = 1;
     }
     bluetooth.sendKwlValue(numWires, "S");
-  } else if (mode >= 2) {
+  } else if (mode >= 3) {
     currentDelayIndex = (currentDelayIndex + 1) % NUM_DELAYS;
     bluetooth.sendKwlValue(currentDelay(), "S");
   }
 }
 
 void prevSetting() {
-  if (mode < 2) {
+  if (mode < 3) {
     numWires = numWires - 1;
     if (numWires == 0) {
       numWires = ACTIVE_CHANNELS;
     }
     bluetooth.sendKwlValue(numWires, "S");
-  } else if (mode >= 2) {
+  } else if (mode >= 3) {
     if (currentDelayIndex == 0) {
       currentDelayIndex = NUM_DELAYS - 1;
     } else {
@@ -343,19 +355,22 @@ void printMode() {
   } else if (mode == 1) {
     bluetooth.sendKwlString("R2", "M");
     bluetooth.sendKwlValue(numWires, "S");
-  } else if (mode == 2) {
+   } else if (mode == 2) {
+    bluetooth.sendKwlString("R3", "M");
+    bluetooth.sendKwlValue(numWires, "S");
+  } else if (mode == 3) {
     bluetooth.sendKwlString("F1", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
-  } else if (mode == 3) {
+  } else if (mode == 4) {
     bluetooth.sendKwlString("F2", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
-  } else if (mode == 4) {
+  } else if (mode == 5) {
     bluetooth.sendKwlString("F3", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
-  } else if (mode == 5) {
+  } else if (mode == 6) {
     bluetooth.sendKwlString("F4", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
-  } else if (mode == 6) {
+  } else if (mode == 7) {
     bluetooth.sendKwlString("F5", "M");
     bluetooth.sendKwlValue(currentDelay(), "S");
   }
